@@ -10,47 +10,41 @@ type Item = {
 }
 
 type Props = {
-  data: Item[]
+  data: Item[] // 直接傳 items 陣列進來：res.data.items（App 已處理）
 }
 
 export default function AnalysisResult({ data }: Props) {
-  const hasItems = Array.isArray(data) && data.length > 0
+  const items = Array.isArray(data) ? data : []
+  const empty = items.length === 0
 
   return (
     <div className="bg-white/5 rounded-2xl p-4">
       <div className="text-white/80 mb-2">辨識結果</div>
 
-      {!hasItems ? (
-        <div className="rounded-xl border border-white/10 bg-black/20 p-4 text-white/70 text-sm">
-          未辨識出食物，請嘗試：
-          <ul className="list-disc pl-5 mt-1 space-y-0.5">
-            <li>更均勻的光線</li>
-            <li>把鏡頭拉遠一些，讓盤子完整入鏡</li>
-            <li>避免過度裁切或太斜的角度</li>
-          </ul>
-        </div>
+      {empty ? (
+        <EmptyHint />
       ) : (
         <div className="space-y-2">
-          {data.map((x, i) => (
+          {items.map((x, i) => (
             <div
               key={i}
-              className="bg-white/5 rounded-lg px-3 py-2 border border-white/10"
+              className="rounded-xl border border-white/10 bg-white/5 p-3"
             >
               <div className="flex items-center justify-between">
-                <div className="truncate">
-                  <div className="font-medium">
+                <div className="min-w-0">
+                  <div className="font-medium truncate">
                     {x.name}
                     {!!x.is_garnish && (
                       <span className="ml-2 text-xs text-white/60">(配菜)</span>
                     )}
                   </div>
                   {x.canonical && x.canonical !== x.name && (
-                    <div className="text-white/50 text-xs">
+                    <div className="text-white/50 text-xs truncate">
                       標準名：{x.canonical}
                     </div>
                   )}
                 </div>
-                <div className="text-sm text-white/90">
+                <div className="text-sm text-white/90 shrink-0">
                   {typeof x.weight_g === 'number' ? `${x.weight_g} g` : '— g'}
                 </div>
               </div>
@@ -76,7 +70,7 @@ function Nut({
   roundInt = false,
 }: {
   label: string
-  value: number | null | undefined
+  value?: number | null
   unit?: string
   roundInt?: boolean
 }) {
@@ -93,6 +87,19 @@ function Nut({
         {shown}
         {unit ? <span className="text-white/50 ml-0.5">{unit}</span> : null}
       </span>
+    </div>
+  )
+}
+
+function EmptyHint() {
+  return (
+    <div className="rounded-xl border border-white/10 bg-black/20 p-4 text-white/70 text-sm">
+      未辨識出食物，請嘗試：
+      <ul className="list-disc pl-5 mt-1 space-y-0.5">
+        <li>使用更均勻的光線</li>
+        <li>拉遠一些，讓餐盤完整入鏡</li>
+        <li>避免過度裁切或太斜的角度</li>
+      </ul>
     </div>
   )
 }
