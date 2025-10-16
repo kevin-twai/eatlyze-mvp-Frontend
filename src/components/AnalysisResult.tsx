@@ -1,105 +1,109 @@
+// src/components/AnalysisResult.tsx
+import React from "react";
+
 type Item = {
-  name: string
-  canonical?: string
-  weight_g?: number | null
-  is_garnish?: boolean
-  kcal?: number
-  protein?: number
-  fat?: number
-  carb?: number
-}
+  name: string;
+  canonical?: string;
+  weight_g: number | null;
+  is_garnish?: boolean;
+  kcal?: number;
+  protein_g?: number;
+  fat_g?: number;
+  carb_g?: number;
+  matched?: boolean;
+};
+
+type Totals = {
+  kcal: number;
+  protein_g: number;
+  fat_g: number;
+  carb_g: number;
+};
 
 type Props = {
-  data: Item[] // 直接傳 items 陣列進來：res.data.items（App 已處理）
-}
+  data?: {
+    items?: Item[];
+    summary?: { totals?: Totals };
+  } | null;
+};
+
+const fmt = (n: number | undefined | null, digits = 1) =>
+  typeof n === "number" && isFinite(n) ? Number(n.toFixed(digits)) : 0;
 
 export default function AnalysisResult({ data }: Props) {
-  const items = Array.isArray(data) ? data : []
-  const empty = items.length === 0
+  const items: Item[] = Array.isArray(data?.items) ? data!.items! : [];
+  const empty = items.length === 0;
 
   return (
     <div className="bg-white/5 rounded-2xl p-4">
-      <div className="text-white/80 mb-2">辨識結果</div>
+      <div className="text-white/80 mb-3">辨識結果</div>
 
       {empty ? (
-        <EmptyHint />
+        <div className="rounded-xl border border-white/10 bg-black/30 p-4 text-sm text-white/70">
+          <div className="font-medium mb-2">未辨識出食物，請嘗試：</div>
+          <ul className="list-disc pl-5 space-y-1">
+            <li>更均勻的光線</li>
+            <li>拉遠一點，讓餐點完整入鏡</li>
+            <li>避免過度裁切或太斜的角度</li>
+          </ul>
+        </div>
       ) : (
-        <div className="space-y-2">
-          {items.map((x, i) => (
-            <div
-              key={i}
-              className="rounded-xl border border-white/10 bg-white/5 p-3"
-            >
-              <div className="flex items-center justify-between">
-                <div className="min-w-0">
-                  <div className="font-medium truncate">
-                    {x.name}
-                    {!!x.is_garnish && (
-                      <span className="ml-2 text-xs text-white/60">(配菜)</span>
-                    )}
-                  </div>
-                  {x.canonical && x.canonical !== x.name && (
-                    <div className="text-white/50 text-xs truncate">
-                      標準名：{x.canonical}
-                    </div>
-                  )}
-                </div>
-                <div className="text-sm text-white/90 shrink-0">
-                  {typeof x.weight_g === 'number' ? `${x.weight_g} g` : '— g'}
-                </div>
-              </div>
+        <div className="space-y-3">
+          {items.map((x, i) => {
+            const kcal = fmt(x.kcal, 0);
+            const p = fmt(x.protein_g, 1);
+            const f = fmt(x.fat_g, 1);
+            const c = fmt(x.carb_g, 1);
 
-              <div className="mt-2 grid grid-cols-4 gap-2 text-xs">
-                <Nut label="kcal" value={x.kcal} unit="kcal" roundInt />
-                <Nut label="蛋白" value={x.protein} unit="g" />
-                <Nut label="脂肪" value={x.fat} unit="g" />
-                <Nut label="碳水" value={x.carb} unit="g" />
+            return (
+              <div
+                key={`${x.name}-${i}`}
+                className="rounded-xl border border-white/10 bg-black/30 p-3"
+              >
+                <div className="flex items-center justify-between">
+                  <div className="min-w-0">
+                    <div className="font-medium truncate">
+                      {x.name}
+                      {x.is_garnish && (
+                        <span className="ml-2 text-xs text-white/50">(配菜)</span>
+                      )}
+                    </div>
+                    <div className="text-xs text-white/50 truncate">
+                      標準名：{x.canonical || x.name}
+                      {!x.matched && (
+                        <span className="ml-2 text-amber-400">（未完全比對）</span>
+                      )}
+                    </div>
+                  </div>
+
+                  <div className="shrink-0 ml-3 text-sm text-white/80">
+                    {fmt(x.weight_g ?? 0, 0)} g
+                  </div>
+                </div>
+
+                <div className="mt-2 grid grid-cols-4 gap-2 text-xs">
+                  <div className="rounded-lg border border-white/10 px-2 py-1">
+                    <div className="text-white/50">kcal</div>
+                    <div className="font-semibold">{kcal} kcal</div>
+                  </div>
+                  <div className="rounded-lg border border-white/10 px-2 py-1">
+                    <div className="text-white/50">蛋白質</div>
+                    <div className="font-semibold">{p} g</div>
+                  </div>
+                  <div className="rounded-lg border border-white/10 px-2 py-1">
+                    <div className="text-white/50">脂肪</div>
+                    <div className="font-semibold">{f} g</div>
+                  </div>
+                  <div className="rounded-lg border border-white/10 px-2 py-1">
+                    <div className="text-white/50">碳水</div>
+                    <div className="font-semibold">{c} g</div>
+                  </div>
+                </div>
               </div>
-            </div>
-          ))}
+            );
+          })}
         </div>
       )}
     </div>
-  )
-}
-
-function Nut({
-  label,
-  value,
-  unit,
-  roundInt = false,
-}: {
-  label: string
-  value?: number | null
-  unit?: string
-  roundInt?: boolean
-}) {
-  const ok = typeof value === 'number' && !Number.isNaN(value)
-  const shown = ok
-    ? roundInt
-      ? Math.round(value as number).toString()
-      : (Math.round((value as number) * 10) / 10).toString()
-    : '—'
-  return (
-    <div className="bg-black/20 rounded-md px-2 py-1 flex items-center justify-between">
-      <span className="text-white/60">{label}</span>
-      <span className="text-white/90">
-        {shown}
-        {unit ? <span className="text-white/50 ml-0.5">{unit}</span> : null}
-      </span>
-    </div>
-  )
-}
-
-function EmptyHint() {
-  return (
-    <div className="rounded-xl border border-white/10 bg-black/20 p-4 text-white/70 text-sm">
-      未辨識出食物，請嘗試：
-      <ul className="list-disc pl-5 mt-1 space-y-0.5">
-        <li>使用更均勻的光線</li>
-        <li>拉遠一些，讓餐盤完整入鏡</li>
-        <li>避免過度裁切或太斜的角度</li>
-      </ul>
-    </div>
-  )
+  );
 }
