@@ -2,40 +2,46 @@ import { useState } from 'react'
 import { uploadAndAnalyze } from '../api'
 
 export default function UploadArea({ onResult }: { onResult: (r: any) => void }) {
-  const [loading, setLoading] = useState(false)
+  const [preview, setPreview] = useState<string | null>(null)
+  const [busy, setBusy] = useState(false)
 
-  async function handleFileChange(e: React.ChangeEvent<HTMLInputElement>) {
+  async function onFile(e: React.ChangeEvent<HTMLInputElement>) {
     const file = e.target.files?.[0]
     if (!file) return
 
-    setLoading(true)
+    // 顯示圖片預覽
+    const url = URL.createObjectURL(file)
+    setPreview(url)
+
+    setBusy(true)
     try {
-      console.log('📤 正在上傳圖片至後端分析...', file.name)
-      const resp = await uploadAndAnalyze(file)
-      console.log('✅ 後端回傳結果:', resp)
-      onResult(resp) // resp = { status:'ok', data:{ items:[...] } }
+      const resp = await uploadAndAnalyze(file) // 後端回 { items, summary }
+      onResult(resp)
     } catch (err: any) {
-      console.error(
-        '❌ uploadAndAnalyze failed:',
-        err?.response?.status,
-        err?.response?.data || err?.message
-      )
+      console.error('uploadAndAnalyze failed:', err?.response?.status, err?.response?.data || err?.message)
       alert('上傳或分析失敗，請重試')
     } finally {
-      setLoading(false)
+      setBusy(false)
     }
   }
 
   return (
-    <div className="bg-white/5 rounded-2xl p-4 space-y-3">
+    <div className="bg-white/5 rounded-2xl p-4">
       <div className="text-white/80 mb-2">上傳餐點照片</div>
-      <input
-        type="file"
-        accept="image/*"
-        onChange={handleFileChange}
-        disabled={loading}
-      />
-      {loading && <p className="text-sm text-white/60">分析中...</p>}
+      <label className="inline-flex items-center gap-2 px-3 py-2 rounded-lg bg-white/10 hover:bg-white/15 cursor-pointer">
+        <input type="file" accept="image/*" className="hidden" onChange={onFile} />
+        <span>{busy ? '分析中…' : '選擇檔案'}</span>
+      </label>
+
+      {preview && (
+        <div className="mt-4">
+          <img
+            src={preview}
+            alt="預覽"
+            className="w-full max-h-[360px] object-contain rounded-xl border border-white/10"
+          />
+        </div>
+      )}
     </div>
   )
 }

@@ -1,47 +1,41 @@
 import axios from 'axios'
 
-// 從環境變數載入後端 URL，確保沒有多餘的斜線
 export const API_BASE_URL =
-  (import.meta.env.VITE_API_BASE_URL as string)?.replace(/\/$/, '') ||
+  (import.meta.env.VITE_API_BASE_URL as string | undefined)?.replace(/\/$/, '') ||
   'http://localhost:8000'
 
-// 建立 axios 實例
 export const api = axios.create({
   baseURL: API_BASE_URL,
   timeout: 60_000,
   withCredentials: false,
 })
 
-// 上傳圖片並呼叫 /analyze/image
-export async function uploadAndAnalyze(file: File) {
+export async function uploadAndAnalyze(
+  file: File
+): Promise<{ items: any[]; summary?: { totals: { kcal: number; protein_g: number; fat_g: number; carb_g: number } } }> {
   const fd = new FormData()
-  fd.append('file', file, file.name) // 帶上檔名
+  fd.append('file', file)
 
   try {
-    // ❗不要手動設定 Content-Type，axios 會自動處理 boundary
-    const { data } = await api.post('/analyze/image', fd)
-    return data // { status, data: { items: [...] } }
+    const { data } = await api.post('/analyze/image', fd, {
+      headers: { 'Content-Type': 'multipart/form-data' },
+    })
+    // 後端回傳 { status:'ok', data:{ ... } }
+    return data?.data ?? data
   } catch (err: any) {
-    console.error(
-      '❌ upload error:',
-      err?.response?.status,
-      err?.response?.data || err?.message
-    )
-    throw err
+    const msg =
+      err?.response?.data?.detail ||
+      err?.response?.data?.message ||
+      err?.message ||
+      'Upload/Analyze failed'
+    throw new Error(msg)
   }
 }
 
-// 寫入 Notion 日誌
 export async function logToNotion(payload: any) {
   try {
-    const { data } = await api.post('/notion/log', payload)
-    return data
-  } catch (err: any) {
-    console.error(
-      '❌ notion log error:',
-      err?.response?.status,
-      err?.response?.data || err?.message
-    )
-    throw err
+    await api.post('/notion/log', payload)
+  } catch {
+    // 忽略記錄錯誤，避免影響使用者流程
   }
 }
