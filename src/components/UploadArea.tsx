@@ -1,101 +1,83 @@
 import { useRef, useState } from 'react'
 import { uploadAndAnalyze } from '../api'
 
-type Props = {
-  onResult: (data: any) => void
-}
+type Props = { onResult?: (r: { items: any[]; summary?: any }) => void }
 
-/** 圖片壓縮函式，避免超大圖檔上傳失敗 */
 async function compressImage(file: File, maxSide = 1600, quality = 0.8): Promise<File> {
-  const img = new Image()
-  img.src = URL.createObjectURL(file)
-  await new Promise((res) => (img.onload = res))
+  try {
+    const img = await new Promise<HTMLImageElement>((res, rej) => {
+      const el = new Image()
+      el.onload = () => res(el)
+      el.onerror = rej
+      el.src = URL.createObjectURL(file)
+    })
+    const ratio = Math.min(1, maxSide / Math.max(img.width, img.height))
+    const w = Math.round(img.width * ratio)
+    const h = Math.round(img.height * ratio)
 
-  const canvas = document.createElement('canvas')
-  const scale = Math.min(maxSide / img.width, maxSide / img.height, 1)
-  canvas.width = img.width * scale
-  canvas.height = img.height * scale
+    const canvas = document.createElement('canvas')
+    canvas.width = w
+    canvas.height = h
+    const ctx = canvas.getContext('2d')!
+    ctx.drawImage(img, 0, 0, w, h)
 
-  const ctx = canvas.getContext('2d')
-  if (!ctx) throw new Error('Canvas context error')
-  ctx.drawImage(img, 0, 0, canvas.width, canvas.height)
-
-  return new Promise((resolve) => {
-    canvas.toBlob(
-      (blob) => {
-        if (!blob) throw new Error('Image compression failed')
-        resolve(new File([blob], file.name, { type: 'image/jpeg' }))
-      },
-      'image/jpeg',
-      quality
-    )
-  })
+    const blob: Blob = await new Promise((res) => canvas.toBlob((b) => res(b!), 'image/jpeg', quality))
+    return new File([blob], file.name.replace(/\.\w+$/, '') + '.jpg', { type: 'image/jpeg' })
+  } catch {
+    return file
+  }
 }
 
-/** 主元件 */
 export default function UploadArea({ onResult }: Props) {
   const fileRef = useRef<HTMLInputElement>(null)
   const [busy, setBusy] = useState(false)
-  const [previewUrl, setPreviewUrl] = useState<string | null>(null)
+  const [previewURL, setPreviewURL] = useState<string | null>(null)
 
-  /** 開啟檔案選擇器 */
   const choose = () => fileRef.current?.click()
 
-  /** 處理上傳流程 */
-  const handleFile = async (f: File) => {
-    if (previewUrl) URL.revokeObjectURL(previewUrl)
-    setPreviewUrl(URL.createObjectURL(f))
-    setBusy(true)
+  const handle = async (f?: File) => {
+    if (!f) return
+    if (previewURL) URL.revokeObjectURL(previewURL)
+    setPreviewURL(URL.createObjectURL(f))
 
+    setBusy(true)
     try {
-      const small = await compressImage(f) // 壓縮圖片
-      const resp = await uploadAndAnalyze(small) // 呼叫後端
-      console.log('[UploadArea] resp:', resp)
-      onResult?.(resp) // ✅ 統一結構，直接丟 {items, summary}
-    } catch (err: any) {
-      console.error('Upload/Analyze failed:', err)
+      const small = await compressImage(f)
+      const resp = await uploadAndAnalyze(small)
+      console.log('[UploadArea] analyze result:', resp) // ← 看看形狀：應該長這樣 { items:[], summary:{ totals:{} } }
+      onResult?.(resp)
+    } catch (e: any) {
       alert('上傳或分析失敗，請重試')
+      console.error(e)
     } finally {
       setBusy(false)
     }
   }
 
   return (
-    <div className="rounded-2xl bg-white/5 p-4 text-white">
-      <div className="mb-2 text-white/80">上傳餐點照片</div>
-
-      <div className="flex items-center justify-between">
-        <input
-          type="file"
-          accept="image/*"
-          ref={fileRef}
-          className="hidden"
-          onChange={(e) => {
-            const file = e.target.files?.[0]
-            if (file) handleFile(file)
-          }}
-        />
-
+    <div className="bg-white/5 rounded-2xl p-4">
+      <div className="flex items-center justify-between mb-3">
+        <div className="text-white/80">上傳餐點照片</div>
         <button
+          className="px-3 py-1.5 rounded-lg bg-blue-500/80 hover:bg-blue-500 transition text-sm"
           onClick={choose}
           disabled={busy}
-          className={`rounded-lg px-4 py-2 font-medium transition ${
-            busy
-              ? 'bg-gray-500 text-white/80 cursor-not-allowed'
-              : 'bg-blue-600 hover:bg-blue-500 text-white'
-          }`}
         >
           {busy ? '分析中…' : '選擇圖片'}
         </button>
       </div>
 
-      {previewUrl && (
-        <div className="mt-4 overflow-hidden rounded-xl border border-white/10">
-          <img
-            src={previewUrl}
-            alt="preview"
-            className="w-full object-cover transition-opacity duration-300"
-          />
+      <input
+        ref={fileRef}
+        type="file"
+        accept="image/*"
+        className="hidden"
+        onChange={(e) => handle(e.currentTarget.files?.[0] || undefined)}
+      />
+
+      {previewURL && (
+        <div className="rounded-xl overflow-hidden border border-white/10">
+          <img src={previewURL} className="w-full object-cover" />
         </div>
       )}
     </div>

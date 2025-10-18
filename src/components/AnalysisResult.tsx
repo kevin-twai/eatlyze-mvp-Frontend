@@ -8,28 +8,28 @@ type Item = {
   fat_g?: number
   carb_g?: number
   matched?: boolean
-  matched_name?: string
 }
 
-type Props = {
-  /** 可能是 {items, summary} 或 {status, data:{items, summary}} */
-  data?: any
-}
+type Props =
+  | { data: Item[] }                         // 直接給陣列
+  | { data: { items?: Item[] } | null }      // 或給物件（含 items）
 
-export default function AnalysisResult({ data }: Props) {
-  // 兼容兩種資料形狀
-  const root: any = data && (data as any).items ? data : (data as any)?.data || data
-  const items: Item[] = Array.isArray(root?.items) ? root.items : []
-  const empty = items.length === 0
+export default function AnalysisResult(props: Props) {
+  // 同時支援兩種形狀
+  const items: Item[] = Array.isArray((props as any).data)
+    ? ((props as any).data as Item[])
+    : (props as any).data?.items ?? []
+
+  const empty = !items || items.length === 0
 
   return (
-    <div className="rounded-2xl bg-white/5 p-4">
-      <div className="mb-2 text-white/80">辨識結果</div>
+    <div>
+      <div className="text-white/80 mb-2">辨識結果</div>
 
       {empty ? (
-        <div className="rounded-xl border border-white/10 bg-black/20 p-4 text-sm text-white/70">
-          <div className="mb-2">未辨識出食物，請嘗試：</div>
-          <ul className="list-disc space-y-1 pl-5">
+        <div className="rounded-xl border border-white/10 bg-white/5 p-4 text-sm leading-6 text-white/70">
+          <div className="font-medium mb-2">未辨識出食物，請嘗試：</div>
+          <ul className="list-disc pl-5 space-y-1">
             <li>更均勻的光線</li>
             <li>拉遠一點，讓餐點完整入鏡</li>
             <li>避免過度裁切或太斜的角度</li>
@@ -38,63 +38,48 @@ export default function AnalysisResult({ data }: Props) {
       ) : (
         <div className="space-y-3">
           {items.map((x, i) => (
-            <div
-              key={i}
-              className="rounded-xl border border-white/10 bg-black/20 px-4 py-3 text-sm text-white/90"
-            >
-              <div className="flex items-start justify-between gap-3">
-                <div className="min-w-0">
-                  <div className="truncate font-medium">
-                    {x.name}
-                    {x.is_garnish && (
-                      <span className="ml-2 align-middle rounded bg-white/10 px-2 py-0.5 text-xs text-white/80">
-                        (點綴)
-                      </span>
-                    )}
-                  </div>
-                  <div className="mt-1 truncate text-xs text-white/60">
-                    標準名：{x.matched ? x.matched_name || x.canonical || '—' : x.canonical || '—'}
-                  </div>
+            <div key={i} className="rounded-xl border border-white/10 bg-white/5 p-3">
+              <div className="flex items-center justify-between">
+                <div className="font-semibold">
+                  {x.name}
+                  {x.canonical && x.canonical !== x.name ? (
+                    <span className="ml-2 text-xs text-white/50">標準名：{x.canonical}</span>
+                  ) : null}
+                  {x.is_garnish ? (
+                    <span className="ml-2 text-xs text-white/50">(配菜)</span>
+                  ) : null}
                 </div>
-
-                {!x.matched && (
-                  <span className="shrink-0 rounded-full bg-red-500/20 px-2 py-0.5 text-xs font-medium text-red-300">
-                    未匹配
-                  </span>
-                )}
+                <div className="text-sm text-white/70">{x.weight_g ?? 0} g</div>
               </div>
 
-              <div className="mt-3 grid grid-cols-5 items-center gap-2 text-xs text-white/80">
-                <div>
-                  <div className="text-white/50">重量</div>
-                  <div className="mt-0.5">{round1(x.weight_g)} g</div>
+              <div className="grid grid-cols-4 gap-2 mt-2 text-sm">
+                <div className="rounded-lg bg-black/20 px-2 py-1">
+                  <div className="text-xs text-white/50">kcal</div>
+                  <div>{x.kcal ?? 0} kcal</div>
                 </div>
-                <div>
-                  <div className="text-white/50">熱量</div>
-                  <div className="mt-0.5">{round1(x.kcal)} kcal</div>
+                <div className="rounded-lg bg-black/20 px-2 py-1">
+                  <div className="text-xs text-white/50">蛋白</div>
+                  <div>{x.protein_g ?? 0} g</div>
                 </div>
-                <div>
-                  <div className="text-white/50">蛋白質</div>
-                  <div className="mt-0.5">{round1(x.protein_g)} g</div>
+                <div className="rounded-lg bg-black/20 px-2 py-1">
+                  <div className="text-xs text-white/50">脂肪</div>
+                  <div>{x.fat_g ?? 0} g</div>
                 </div>
-                <div>
-                  <div className="text-white/50">脂肪</div>
-                  <div className="mt-0.5">{round1(x.fat_g)} g</div>
-                </div>
-                <div>
-                  <div className="text-white/50">碳水</div>
-                  <div className="mt-0.5">{round1(x.carb_g)} g</div>
+                <div className="rounded-lg bg-black/20 px-2 py-1">
+                  <div className="text-xs text-white/50">碳水</div>
+                  <div>{x.carb_g ?? 0} g</div>
                 </div>
               </div>
+
+              {x.matched === false && (
+                <div className="mt-2 text-xs text-amber-300/80">
+                  沒在資料表中找到完全對應，已先以 0 顯示。
+                </div>
+              )}
             </div>
           ))}
         </div>
       )}
     </div>
   )
-}
-
-function round1(v: number | null | undefined) {
-  const n = Number(v ?? 0)
-  return Math.round(n * 10) / 10
 }
