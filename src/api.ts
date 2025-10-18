@@ -1,46 +1,54 @@
-import axios from 'axios'
+import axios from "axios";
+
+/** 單一食材項目（後端 enrich 後會帶 kcal/P/F/C 以及 matched） */
+export type Item = {
+  name: string;
+  canonical?: string | null;
+  weight_g: number;
+  is_garnish?: boolean;
+
+  // enrich 後
+  kcal?: number;
+  protein_g?: number;
+  fat_g?: number;
+  carb_g?: number;
+  matched?: boolean;
+};
+
+export type Totals = {
+  kcal: number;
+  protein_g: number;
+  fat_g: number;
+  carb_g: number;
+};
+
+export type AnalyzeResponse = {
+  /** 後端儲存後的實際圖片 URL，用於 <img src> 顯示 */
+  image_url?: string;
+  items: Item[];
+  summary?: { totals: Totals };
+};
 
 export const API_BASE_URL =
-  (import.meta.env.VITE_API_BASE_URL as string | undefined)?.replace(/\/$/, '') ||
-  'https://eatlyze-backend.onrender.com'
+  (import.meta.env.VITE_API_BASE_URL as string | undefined)?.replace(/\/$/, "") ||
+  "https://eatlyze-backend.onrender.com";
 
 export const api = axios.create({
   baseURL: API_BASE_URL,
-  timeout: 60000,
+  timeout: 60_000,
   withCredentials: false,
-})
+});
 
-/** 送圖給後端，回傳「內層」的 { items, summary } 形狀 */
-export async function uploadAndAnalyze(
-  file: File
-): Promise<{ items: any[]; summary?: { totals?: { kcal: number; protein_g: number; fat_g: number; carb_g: number } } }> {
-  const fd = new FormData()
-  fd.append('file', file)
+/** 上傳圖片並做分析，回傳資料格式已型別化（含 image_url） */
+export async function uploadAndAnalyze(file: File): Promise<AnalyzeResponse> {
+  const fd = new FormData();
+  fd.append("file", file);
 
-  try {
-    const { data } = await api.post('/analyze/image', fd, {
-      headers: { 'Content-Type': 'multipart/form-data' },
-    })
-    // 後端回傳 { status:'ok', data:{ items, summary } }
-    return data?.data ?? data
-  } catch (err: any) {
-    const msg =
-      err?.response?.data?.detail ||
-      err?.response?.data?.message ||
-      err?.message ||
-      'Upload/Analyze failed'
-    console.error('uploadAndAnalyze failed:', err?.response?.status, err?.response?.data || err?.message)
-    throw new Error(msg)
-  }
-}
+  const { data } = await api.post("/analyze/image", fd, {
+    headers: { "Content-Type": "multipart/form-data" },
+  });
 
-export async function logToNotion(payload: any) {
-  try {
-    const { data } = await api.post('/notion/log', payload)
-    return data
-  } catch (err: any) {
-    const msg = err?.response?.data?.detail || err?.message || 'Notion log failed'
-    console.error('logToNotion failed:', msg)
-    throw new Error(msg)
-  }
+  // 後端是 { status:'ok', data:{ ...payload } }
+  const payload = data?.data ?? data;
+  return payload as AnalyzeResponse;
 }
