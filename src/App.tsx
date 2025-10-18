@@ -4,8 +4,13 @@ import AnalysisResult from './components/AnalysisResult'
 import NutritionSummary from './components/NutritionSummary'
 import { API_BASE_URL } from './api'
 
+type ResultShape = {
+  items: any[]
+  summary?: { totals?: { kcal: number; protein_g: number; fat_g: number; carb_g: number } }
+} | null
+
 export default function App() {
-  const [result, setResult] = useState<any | null>(null)
+  const [result, setResult] = useState<ResultShape>(null)
 
   return (
     <div className="min-h-dvh bg-[#0B1220] text-white">
@@ -20,20 +25,20 @@ export default function App() {
       {/* Main */}
       <main className="mx-auto max-w-5xl p-4 space-y-6">
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
-          {/* Left side */}
+          {/* Left: upload + items */}
           <div className="lg:col-span-2 space-y-4">
             <UploadArea onResult={setResult} />
-            <AnalysisResult data={result?.items ?? []} />
+            <div className="bg-white/5 rounded-2xl p-4">
+              <div className="text-white/80 mb-2">辨識結果</div>
+              <AnalysisResult data={result?.items ?? []} />
+            </div>
           </div>
 
-          {/* Right side */}
+          {/* Right: summary */}
           <aside className="space-y-4">
             <div className="bg-white/5 rounded-2xl p-4">
               <div className="text-white/80 mb-2">總營養</div>
-              <NutritionSummary
-                totals={result?.summary?.totals}
-                fallbackItems={result?.items ?? []}
-              />
+              <NutritionSummary totals={result?.summary?.totals} />
             </div>
           </aside>
         </div>
