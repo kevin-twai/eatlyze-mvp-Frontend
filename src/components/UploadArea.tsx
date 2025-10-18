@@ -2,62 +2,58 @@ import { useRef, useState } from 'react'
 import { uploadAndAnalyze } from '../api'
 
 type Props = {
-  onResult?: (data: any) => void
+  onResult: (data: any) => void
 }
 
-/** 壓縮圖片成 JPEG（最大邊 1600px，品質 0.8） */
+/** 圖片壓縮函式，避免超大圖檔上傳失敗 */
 async function compressImage(file: File, maxSide = 1600, quality = 0.8): Promise<File> {
-  if (!file.type.startsWith('image/')) return file
+  const img = new Image()
+  img.src = URL.createObjectURL(file)
+  await new Promise((res) => (img.onload = res))
 
-  const src = URL.createObjectURL(file)
-  try {
-    const img = await new Promise<HTMLImageElement>((resolve, reject) => {
-      const im = new Image()
-      im.onload = () => resolve(im)
-      im.onerror = reject
-      im.src = src
-    })
+  const canvas = document.createElement('canvas')
+  const scale = Math.min(maxSide / img.width, maxSide / img.height, 1)
+  canvas.width = img.width * scale
+  canvas.height = img.height * scale
 
-    const { width, height } = img
-    const scale = Math.min(1, maxSide / Math.max(width, height))
-    const targetW = Math.round(width * scale)
-    const targetH = Math.round(height * scale)
+  const ctx = canvas.getContext('2d')
+  if (!ctx) throw new Error('Canvas context error')
+  ctx.drawImage(img, 0, 0, canvas.width, canvas.height)
 
-    const canvas = document.createElement('canvas')
-    canvas.width = targetW
-    canvas.height = targetH
-    const ctx = canvas.getContext('2d')!
-    ctx.drawImage(img, 0, 0, targetW, targetH)
-
-    const blob: Blob = await new Promise((res) =>
-      canvas.toBlob((b) => res(b as Blob), 'image/jpeg', quality)
+  return new Promise((resolve) => {
+    canvas.toBlob(
+      (blob) => {
+        if (!blob) throw new Error('Image compression failed')
+        resolve(new File([blob], file.name, { type: 'image/jpeg' }))
+      },
+      'image/jpeg',
+      quality
     )
-
-    return new File([blob], file.name.replace(/\.\w+$/, '') + '.jpg', { type: 'image/jpeg' })
-  } finally {
-    URL.revokeObjectURL(src)
-  }
+  })
 }
 
+/** 主元件 */
 export default function UploadArea({ onResult }: Props) {
   const fileRef = useRef<HTMLInputElement>(null)
   const [busy, setBusy] = useState(false)
   const [previewUrl, setPreviewUrl] = useState<string | null>(null)
 
+  /** 開啟檔案選擇器 */
   const choose = () => fileRef.current?.click()
 
+  /** 處理上傳流程 */
   const handleFile = async (f: File) => {
-    // 預覽
     if (previewUrl) URL.revokeObjectURL(previewUrl)
     setPreviewUrl(URL.createObjectURL(f))
-
     setBusy(true)
+
     try {
-      const small = await compressImage(f)
-      const resp = await uploadAndAnalyze(small) // 這裡已是 { items, summary }
-      onResult?.(resp) // ✅ 不要 resp.data
+      const small = await compressImage(f) // 壓縮圖片
+      const resp = await uploadAndAnalyze(small) // 呼叫後端
+      console.log('[UploadArea] resp:', resp)
+      onResult?.(resp) // ✅ 統一結構，直接丟 {items, summary}
     } catch (err: any) {
-      console.error('uploadAndAnalyze failed:', err?.response?.status, err?.response?.data || err?.message)
+      console.error('Upload/Analyze failed:', err)
       alert('上傳或分析失敗，請重試')
     } finally {
       setBusy(false)
@@ -65,36 +61,43 @@ export default function UploadArea({ onResult }: Props) {
   }
 
   return (
-    <div className="bg-white/5 rounded-2xl p-4">
-      <div className="flex items-center justify-between mb-3">
-        <div className="text-white/80">上傳餐點照片</div>
+    <div className="rounded-2xl bg-white/5 p-4 text-white">
+      <div className="mb-2 text-white/80">上傳餐點照片</div>
+
+      <div className="flex items-center justify-between">
+        <input
+          type="file"
+          accept="image/*"
+          ref={fileRef}
+          className="hidden"
+          onChange={(e) => {
+            const file = e.target.files?.[0]
+            if (file) handleFile(file)
+          }}
+        />
+
         <button
           onClick={choose}
           disabled={busy}
-          className="px-3 py-1.5 rounded-lg bg-blue-600/90 hover:bg-blue-600 text-white text-sm disabled:opacity-60"
+          className={`rounded-lg px-4 py-2 font-medium transition ${
+            busy
+              ? 'bg-gray-500 text-white/80 cursor-not-allowed'
+              : 'bg-blue-600 hover:bg-blue-500 text-white'
+          }`}
         >
           {busy ? '分析中…' : '選擇圖片'}
         </button>
       </div>
 
-      <input
-        ref={fileRef}
-        type="file"
-        accept="image/*"
-        className="hidden"
-        onChange={(e) => {
-          const f = e.target.files?.[0]
-          if (f) handleFile(f)
-        }}
-      />
-
-      <div className="rounded-2xl bg-black/30 border border-white/10 aspect-[4/3] flex items-center justify-center overflow-hidden">
-        {previewUrl ? (
-          <img src={previewUrl} alt="預覽" className="max-h-full max-w-full object-contain" />
-        ) : (
-          <div className="text-white/40 text-sm">尚未選擇圖片</div>
-        )}
-      </div>
+      {previewUrl && (
+        <div className="mt-4 overflow-hidden rounded-xl border border-white/10">
+          <img
+            src={previewUrl}
+            alt="preview"
+            className="w-full object-cover transition-opacity duration-300"
+          />
+        </div>
+      )}
     </div>
   )
 }
