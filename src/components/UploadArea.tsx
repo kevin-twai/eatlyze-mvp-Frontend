@@ -1,56 +1,71 @@
-import { useRef, useState } from "react";
-import { uploadAndAnalyze } from "../api";
+import React, { useRef, useState } from 'react'
+import { uploadAndAnalyze } from '../api'
 
 type Props = {
-  onResult?: (data: any) => void;
-};
+  onResult?: (payload: any) => void
+}
+
+// 客端壓縮：長邊 <=1280、JPEG 品質 0.72（速度/畫質折衷）
+async function compressImage(file: File, maxSide = 1280, quality = 0.72): Promise<File> {
+  const img = await new Promise<HTMLImageElement>((resolve, reject) => {
+    const image = new Image()
+    image.onload = () => resolve(image)
+    image.onerror = reject
+    image.src = URL.createObjectURL(file)
+  })
+
+  const canvas = document.createElement('canvas')
+  const ctx = canvas.getContext('2d')!
+
+  const { width, height } = img
+  const ratio = width > height ? maxSide / width : maxSide / height
+  const w = Math.max(1, Math.round(width * Math.min(1, ratio)))
+  const h = Math.max(1, Math.round(height * Math.min(1, ratio)))
+
+  canvas.width = w
+  canvas.height = h
+  ctx.drawImage(img, 0, 0, w, h)
+
+  const blob: Blob = await new Promise((resolve) => {
+    canvas.toBlob((b) => resolve(b as Blob), 'image/jpeg', quality)
+  })
+
+  URL.revokeObjectURL(img.src)
+  return new File([blob], file.name.replace(/\.(png|jpe?g|webp)$/i, '') + '.jpg', {
+    type: 'image/jpeg',
+  })
+}
 
 export default function UploadArea({ onResult }: Props) {
-  const fileRef = useRef<HTMLInputElement>(null);
-  const [busy, setBusy] = useState(false);
-  const [previewURL, setPreviewURL] = useState<string | null>(null);
-  const lastObjectUrlRef = useRef<string | null>(null);
+  const fileRef = useRef<HTMLInputElement>(null)
+  const [busy, setBusy] = useState(false)
+  const [previewURL, setPreviewURL] = useState<string | null>(null)
 
-  const choose = () => fileRef.current?.click();
+  const choose = () => fileRef.current?.click()
 
-  const handleFile = async (e: any) => {
-    const f: File | null = e.target.files?.[0] ?? null;
-    if (!f) return;
+  const handleFile = async (f: File) => {
+    // 先顯示本地預覽
+    if (previewURL) URL.revokeObjectURL(previewURL)
+    setPreviewURL(URL.createObjectURL(f))
 
-    // ✅ 1) 先用 Object URL 立即預覽（使用者有回饋）
-    if (lastObjectUrlRef.current) {
-      URL.revokeObjectURL(lastObjectUrlRef.current);
-      lastObjectUrlRef.current = null;
-    }
-    const localUrl = URL.createObjectURL(f);
-    lastObjectUrlRef.current = localUrl;
-    setPreviewURL(localUrl);
-
-    setBusy(true);
+    setBusy(true)
     try {
-      // 你若有壓縮邏輯，可在這裡先壓（略）
-      const resp = await uploadAndAnalyze(f);
-      onResult?.(resp);
+      // 壓縮再上傳 → 更快
+      const small = await compressImage(f)
+      const resp = await uploadAndAnalyze(small) // 後端分析
+      onResult?.(resp)
 
-      // ✅ 2) 後端若有回傳 image_url，就覆蓋為可公開網址（加上防快取參數）
-      if (resp?.image_url) {
-        const finalUrl = `${resp.image_url}${resp.image_url.includes("?") ? "&" : "?"}t=${Date.now()}`;
-        setPreviewURL(finalUrl);
-        // 釋放本地 object url
-        if (lastObjectUrlRef.current) {
-          URL.revokeObjectURL(lastObjectUrlRef.current);
-          lastObjectUrlRef.current = null;
-        }
+      // 後端會回傳實際可公開讀取的 image_url（/image/...）
+      if (resp && typeof resp.image_url === 'string' && resp.image_url.length > 0) {
+        setPreviewURL(resp.image_url)
       }
-    } catch (err) {
-      console.error("Upload & Analyze failed:", err);
-      alert("上傳或分析失敗，請重試");
+    } catch (err: any) {
+      console.error('Upload & Analyze failed:', err)
+      alert('上傳或分析失敗，請重試')
     } finally {
-      setBusy(false);
-      // 清空 input，避免同檔名無法再次觸發 change
-      if (fileRef.current) fileRef.current.value = "";
+      setBusy(false)
     }
-  };
+  }
 
   return (
     <div className="bg-white/5 rounded-2xl p-4">
@@ -59,35 +74,28 @@ export default function UploadArea({ onResult }: Props) {
         <button
           onClick={choose}
           disabled={busy}
-          className="px-3 py-1 rounded bg-blue-600 hover:bg-blue-700 text-white text-sm disabled:opacity-50 disabled:cursor-not-allowed"
+          className="px-3 py-1 rounded bg-blue-600 hover:bg-blue-700 text-white text-sm disabled:opacity-50 cursor-not-allowed"
         >
-          {busy ? "分析中..." : "選擇圖片"}
+          {busy ? '分析中…' : '選擇圖片'}
         </button>
       </div>
-
-      {/* ✅ 3) 預覽區塊：給固定高度，確保可見；沒有圖時顯示提示框 */}
-      {previewURL ? (
-        <div className="rounded-xl overflow-hidden bg-black/20">
-          <img
-            src={previewURL}
-            alt="preview"
-            className="w-full max-h-[560px] object-contain"
-            crossOrigin="anonymous"
-          />
-        </div>
-      ) : (
-        <div className="h-64 rounded-xl border border-dashed border-white/20 flex items-center justify-center text-white/60">
-          尚未選擇圖片
-        </div>
-      )}
 
       <input
         ref={fileRef}
         type="file"
         accept="image/*"
+        onChange={(e) => {
+          const f = e.target.files?.[0]
+          if (f) handleFile(f)
+        }}
         className="hidden"
-        onChange={handleFile}
       />
+
+      {previewURL ? (
+        <img src={previewURL} className="w-full rounded-lg" alt="preview" />
+      ) : (
+        <div className="text-white/40 text-sm">尚未選擇圖片</div>
+      )}
     </div>
-  );
+  )
 }
