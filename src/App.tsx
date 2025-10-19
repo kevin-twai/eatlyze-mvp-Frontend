@@ -1,22 +1,27 @@
-import { useState } from "react";
-import UploadArea from "./components/UploadArea";
+import { useMemo, useState } from "react";
+import UploadArea, { AnalyzeResp } from "./components/UploadArea";
 import AnalysisResult from "./components/AnalysisResult";
 import NutritionSummary from "./components/NutritionSummary";
-import type { AnalyzeResponse, Totals } from "./api";
 
 export default function App() {
-  const [result, setResult] = useState<AnalyzeResponse | null>(null);
+  const [result, setResult] = useState<AnalyzeResp | null>(null);
 
-  // 關鍵：總營養直接取 result.summary（不是 result.summary.totals）
-  const totals: Totals | null = result?.summary ?? null;
+  const totals = useMemo(() => {
+    return result?.summary ?? { kcal: 0, protein_g: 0, fat_g: 0, carb_g: 0 };
+  }, [result]);
+
+  const apiBase =
+    (import.meta as any).env?.VITE_API_BASE_URL ||
+    (window as any).__API_BASE__ ||
+    "https://eatlyze-backend.onrender.com";
 
   return (
-    <div className="max-w-7xl mx-auto p-4 md:p-6">
-      <header className="sticky top-0 z-10 border-b border-white/10 bg-[#0B1220]/80 backdrop-blur">
-        <div className="max-w-7xl mx-auto px-4 py-3 flex items-center justify-between">
+    <div className="min-h-screen bg-[#0b0e13] text-white">
+      <header className="border-b border-white/10">
+        <div className="mx-auto max-w-7xl p-4 md:p-6 flex items-center justify-between">
           <div className="font-semibold text-lg">Eatlyze — Tech Minimal</div>
           <div className="text-white/50 text-sm">
-            API: https://eatlyze-backend.onrender.com
+            API: <span className="underline">{apiBase}</span>
           </div>
         </div>
       </header>

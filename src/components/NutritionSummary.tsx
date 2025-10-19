@@ -1,36 +1,71 @@
-import type { Totals } from "../api";
+import React from "react";
 
-export default function NutritionSummary({ totals }: { totals: Totals | null }) {
-  const kcal = totals?.kcal ?? 0;
-  const protein = totals?.protein_g ?? 0;
-  const fat = totals?.fat_g ?? 0;
-  const carb = totals?.carb_g ?? 0;
+/**
+ * 總營養小卡
+ * - 傳入 summary 物件即可渲染；若缺少則顯示 0
+ */
 
-  const Card = ({
-    label,
-    value,
-    unit,
-  }: {
-    label: string;
-    value: number;
-    unit: string;
-  }) => (
-    <div className="bg-white/5 rounded-2xl p-6">
-      <div className="text-white/60 mb-2">{label}</div>
-      <div className="text-4xl font-bold text-white">
-        {value}
-        <span className="text-white/60 text-xl ml-1">{unit}</span>
-      </div>
-    </div>
-  );
+export type Totals = {
+  kcal?: number;
+  protein_g?: number;
+  fat_g?: number;
+  carb_g?: number;
+};
+
+type Props = {
+  totals?: Totals | null;
+  className?: string;
+};
+
+function fmt(n?: number) {
+  if (n === null || n === undefined || Number.isNaN(n)) return 0;
+  // 只顯示到 1 位小數（整數就顯示整數）
+  const x = Math.round(n * 10) / 10;
+  return Number.isInteger(x) ? x : x.toFixed(1);
+}
+
+export default function NutritionSummary({ totals, className = "" }: Props) {
+  const kcal = fmt(totals?.kcal);
+  const p = fmt(totals?.protein_g);
+  const f = fmt(totals?.fat_g);
+  const c = fmt(totals?.carb_g);
+
+  const card =
+    "rounded-2xl bg-[#101318] border border-white/10 shadow-sm p-5 flex flex-col justify-center";
 
   return (
-    <div className="space-y-4">
-      <div className="text-white/90 text-lg font-semibold">總營養</div>
-      <Card label="熱量" value={kcal} unit="kcal" />
-      <Card label="蛋白質" value={protein} unit="g" />
-      <Card label="脂肪" value={fat} unit="g" />
-      <Card label="碳水" value={carb} unit="g" />
+    <div className={`grid grid-cols-1 gap-4 sm:grid-cols-2 ${className}`}>
+      <div className={card}>
+        <div className="text-white/60 text-sm">熱量</div>
+        <div className="mt-2 text-4xl font-bold text-white">
+          {kcal}
+          <span className="ml-1 text-base text-white/60 align-top">kcal</span>
+        </div>
+      </div>
+
+      <div className={card}>
+        <div className="text-white/60 text-sm">蛋白質</div>
+        <div className="mt-2 text-4xl font-bold text-white">
+          {p}
+          <span className="ml-1 text-base text-white/60 align-top">g</span>
+        </div>
+      </div>
+
+      <div className={card}>
+        <div className="text-white/60 text-sm">脂肪</div>
+        <div className="mt-2 text-4xl font-bold text-white">
+          {f}
+          <span className="ml-1 text-base text-white/60 align-top">g</span>
+        </div>
+      </div>
+
+      <div className={card}>
+        <div className="text-white/60 text-sm">碳水</div>
+        <div className="mt-2 text-4xl font-bold text-white">
+          {c}
+          <span className="ml-1 text-base text-white/60 align-top">g</span>
+        </div>
+      </div>
     </div>
   );
 }
