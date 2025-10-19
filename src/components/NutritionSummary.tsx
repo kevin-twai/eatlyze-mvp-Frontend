@@ -1,52 +1,36 @@
-type Totals = {
-  kcal?: number
-  protein_g?: number
-  fat_g?: number
-  carb_g?: number
-}
+import type { Totals } from "../api";
 
-export default function NutritionSummary({
-  totals,
-  fallbackItems = [],
-}: {
-  totals?: Totals | null
-  fallbackItems?: Array<{
-    kcal?: number
-    protein_g?: number
-    fat_g?: number
-    carb_g?: number
-  }>
-}) {
-  // 後端 totals 優先；沒有就用前端加總做備援
-  const sum = (k: keyof Totals) =>
-    (totals?.[k] ??
-      fallbackItems.reduce((s, it: any) => s + (typeof it?.[k] === 'number' ? it[k]! : 0), 0))
+export default function NutritionSummary({ totals }: { totals: Totals | null }) {
+  const kcal = totals?.kcal ?? 0;
+  const protein = totals?.protein_g ?? 0;
+  const fat = totals?.fat_g ?? 0;
+  const carb = totals?.carb_g ?? 0;
 
-  const kcal = round1(sum('kcal'))
-  const p = round1(sum('protein_g'))
-  const f = round1(sum('fat_g'))
-  const c = round1(sum('carb_g'))
-
-  return (
-    <div className="grid grid-cols-2 gap-4">
-      <Card label="熱量" value={kcal} unit="kcal" />
-      <Card label="蛋白質" value={p} unit="g" />
-      <Card label="脂肪" value={f} unit="g" />
-      <Card label="碳水" value={c} unit="g" />
-    </div>
-  )
-}
-
-function Card({ label, value, unit }: { label: string; value: number; unit: string }) {
-  return (
-    <div className="rounded-xl bg-white/5 p-4">
-      <div className="text-white/70 text-sm">{label}</div>
-      <div className="text-3xl font-semibold tabular-nums">
-        {isFinite(value) ? value : 0}{' '}
-        <span className="text-base text-white/60">{unit}</span>
+  const Card = ({
+    label,
+    value,
+    unit,
+  }: {
+    label: string;
+    value: number;
+    unit: string;
+  }) => (
+    <div className="bg-white/5 rounded-2xl p-6">
+      <div className="text-white/60 mb-2">{label}</div>
+      <div className="text-4xl font-bold text-white">
+        {value}
+        <span className="text-white/60 text-xl ml-1">{unit}</span>
       </div>
     </div>
-  )
-}
+  );
 
-const round1 = (n: any) => (typeof n === 'number' ? Math.round(n * 10) / 10 : 0)
+  return (
+    <div className="space-y-4">
+      <div className="text-white/90 text-lg font-semibold">總營養</div>
+      <Card label="熱量" value={kcal} unit="kcal" />
+      <Card label="蛋白質" value={protein} unit="g" />
+      <Card label="脂肪" value={fat} unit="g" />
+      <Card label="碳水" value={carb} unit="g" />
+    </div>
+  );
+}
