@@ -49,7 +49,7 @@ export default function AnalysisResult(props: Props) {
 
   /** ⬇️ 自動載入 CSV 中的中英文對照表 */
   useEffect(() => {
-    fetch("/foods_tw.csv")
+    fetch("https://eatlyze-backend.onrender.com/data/foods_tw.csv")
       .then((res) => res.text())
       .then((txt) => setCN_MAP(parseCSVtoMap(txt)))
       .catch(() => console.warn("⚠️ 無法載入 foods_tw.csv，使用預設中英文對照。"));
