@@ -55,18 +55,21 @@ export default function AnalysisResult(props: Props) {
       ) : (
         <div className="space-y-4">
           {items.map((item, idx) => {
-            const baseName =
-              item.label ||
-              CN_MAP[item.name?.toLowerCase()] ||
-              CN_MAP[item.canonical?.toLowerCase() || ""] ||
-              item.name ||
-              item.canonical ||
-              "未知食材";
+            const normalize = (s?: string | null) =>
+            (s || "").trim().toLowerCase();
 
-            const standard =
-              CN_MAP[item.canonical?.toLowerCase() || ""] ||
-              item.canonical ||
-              item.name;
+          const baseName =
+            item.label ||
+            CN_MAP[normalize(item.name)] ||
+            CN_MAP[normalize(item.canonical)] ||
+            item.name ||
+            item.canonical ||
+            "未知食材";
+
+          const standard =
+            CN_MAP[normalize(item.canonical)] ||
+            item.canonical ||
+            item.name;
 
             return (
               <div
