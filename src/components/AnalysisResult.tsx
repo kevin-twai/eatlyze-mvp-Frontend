@@ -1,104 +1,127 @@
-// frontend/src/components/AnalysisResult.tsx
 import React from "react";
 
 type Item = {
-  // 來源名稱（英文或中文，視後端而定）
   name: string;
-  // 後端新增的中文標籤（若可用，優先顯示）
-  label?: string;
-  // 標準化英文名稱（退而求其次）
   canonical?: string;
-
+  label?: string;
   weight_g?: number | null;
   is_garnish?: boolean;
-
   kcal?: number;
   protein_g?: number;
   fat_g?: number;
   carb_g?: number;
+  matched?: boolean;
+};
 
-  matched?: boolean; // 從營養資料庫中是否有完全對到
+// 中文對照表（可擴充）
+const CN_MAP: Record<string, string> = {
+  "boiled egg": "水煮蛋",
+  "egg": "雞蛋",
+  "baby corn": "玉米筍",
+  "lotus root": "蓮藕",
+  "pumpkin": "南瓜",
+  "carrot": "紅蘿蔔",
+  "eggplant": "茄子",
+  "green pepper": "青椒",
+  "onion": "洋蔥",
+  "tofu": "豆腐",
+  "broccoli": "花椰菜",
+  "chicken breast": "雞胸肉",
+  "pork": "豬肉",
+  "fish": "魚肉",
+  "rice": "白飯",
+  "noodle": "麵條",
+  "mushroom": "香菇",
+  "bean sprout": "豆芽菜",
 };
 
 type Props =
-  | { data: Item[] } // 直接給陣列
-  | { data: { items?: Item[] } | null }; // 或給物件（含 items）
+  | { data: Item[] }
+  | { data: { items?: Item[] } | null };
 
 export default function AnalysisResult(props: Props) {
-  // 同時支援兩種輸入型別
-  const items: Item[] =
-    Array.isArray((props as any).data)
-      ? ((props as any).data as Item[])
-      : ((props as any).data?.items ?? []);
+  const items: Item[] = Array.isArray((props as any).data)
+    ? ((props as any).data as Item[])
+    : ((props as any).data?.items ?? []);
 
   const empty = !items || items.length === 0;
 
   return (
     <div>
-      <div className="text-white/80 mb-2">辨識結果</div>
+      <div className="text-white/80 text-sm mb-2">辨識結果</div>
 
       {empty ? (
-        <div className="bg-white/5 rounded-2xl p-4">
-          <div className="text-white/80 mb-2">未辨識出食物，請嘗試：</div>
-          <ul className="list-disc list-inside text-white/60 leading-7">
-            <li>更均勻的光線</li>
-            <li>拉遠一點，讓餐點完整入鏡</li>
-            <li>避免過度裁切或太斜的角度</li>
-          </ul>
-        </div>
+        <div className="text-white/40 text-sm">尚無資料</div>
       ) : (
-        <div className="space-y-3">
+        <div className="space-y-4">
           {items.map((item, idx) => {
-            const title = item.label ?? item.name ?? item.canonical ?? "未命名食材";
-            const weight = item.weight_g ?? 0;
+            const baseName =
+              item.label ||
+              CN_MAP[item.name?.toLowerCase()] ||
+              CN_MAP[item.canonical?.toLowerCase() || ""] ||
+              item.name ||
+              item.canonical ||
+              "未知食材";
 
-            const kcal = item.kcal ?? 0;
-            const p = item.protein_g ?? 0;
-            const f = item.fat_g ?? 0;
-            const c = item.carb_g ?? 0;
-
-            const matched = item.matched !== false; // 預設 true
+            const standard =
+              CN_MAP[item.canonical?.toLowerCase() || ""] ||
+              item.canonical ||
+              item.name;
 
             return (
-              <div key={`${title}-${idx}`} className="bg-white/5 rounded-2xl p-4">
-                <div className="flex items-center justify-between mb-3">
-                  <div className="text-white text-base font-medium">
-                    {title}
-                    {item.canonical ? (
-                      <span className="ml-2 text-white/40 text-sm">
-                        標準名：{item.canonical}
-                      </span>
-                    ) : null}
-                    {item.is_garnish ? (
-                      <span className="ml-2 text-xs text-amber-300/80 border border-amber-300/40 px-2 py-0.5 rounded">
+              <div
+                key={idx}
+                className="rounded-2xl border border-white/10 bg-white/5 p-4"
+              >
+                <div className="flex justify-between items-center">
+                  <div className="text-lg font-semibold text-white">
+                    {baseName}
+                    {item.is_garnish && (
+                      <span className="ml-2 px-2 py-0.5 text-xs bg-yellow-600/20 text-yellow-400 rounded-full">
                         配菜
                       </span>
-                    ) : null}
+                    )}
                   </div>
-                  <div className="text-white/60 text-sm">{weight} g</div>
+                  {item.weight_g && (
+                    <div className="text-white/50 text-sm">
+                      {item.weight_g} g
+                    </div>
+                  )}
                 </div>
 
-                <div className="grid grid-cols-4 gap-2 text-sm">
-                  <div className="bg-white/5 rounded-xl px-3 py-2">
-                    <div className="text-white/60">kcal</div>
-                    <div className="text-white font-medium">{kcal} kcal</div>
+                <div className="text-white/40 text-xs mb-2">
+                  標準名：{standard}
+                </div>
+
+                <div className="grid grid-cols-4 gap-2 mt-2">
+                  <div className="rounded-xl bg-black/20 p-2">
+                    <div className="text-white/50 text-xs">kcal</div>
+                    <div className="text-white font-medium text-sm">
+                      {item.kcal ?? 0} kcal
+                    </div>
                   </div>
-                  <div className="bg-white/5 rounded-xl px-3 py-2">
-                    <div className="text-white/60">蛋白</div>
-                    <div className="text-white font-medium">{p} g</div>
+                  <div className="rounded-xl bg-black/20 p-2">
+                    <div className="text-white/50 text-xs">蛋白</div>
+                    <div className="text-white font-medium text-sm">
+                      {item.protein_g ?? 0} g
+                    </div>
                   </div>
-                  <div className="bg-white/5 rounded-xl px-3 py-2">
-                    <div className="text-white/60">脂肪</div>
-                    <div className="text-white font-medium">{f} g</div>
+                  <div className="rounded-xl bg-black/20 p-2">
+                    <div className="text-white/50 text-xs">脂肪</div>
+                    <div className="text-white font-medium text-sm">
+                      {item.fat_g ?? 0} g
+                    </div>
                   </div>
-                  <div className="bg-white/5 rounded-xl px-3 py-2">
-                    <div className="text-white/60">碳水</div>
-                    <div className="text-white font-medium">{c} g</div>
+                  <div className="rounded-xl bg-black/20 p-2">
+                    <div className="text-white/50 text-xs">碳水</div>
+                    <div className="text-white font-medium text-sm">
+                      {item.carb_g ?? 0} g
+                    </div>
                   </div>
                 </div>
 
-                {!matched && (
-                  <div className="mt-2 text-xs text-amber-300/80">
+                {!item.matched && (
+                  <div className="text-yellow-400/80 text-xs mt-2">
                     沒在資料表中找到完全對應，已先以 0 顯示。
                   </div>
                 )}
